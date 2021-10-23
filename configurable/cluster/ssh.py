@@ -6,7 +6,7 @@ import json
 from subprocess import Popen, DEVNULL
 from typing import final, Any, Optional
 
-from asyncssh import scp
+from asyncssh import scp, connect
 from distributed import Client as DaskClient
 from distributed.deploy.ssh import Scheduler, Worker, SpecCluster
 from unsync import unsync
@@ -15,9 +15,7 @@ from configurable.client.ssh import Client
 
 
 # TODO:
-# expose config as private props and conv static methods to instance methods
 # - log when transfering files.
-# - add method to restart remote machines on shutdown.
 # - add instance methods [start, shutdown , restart(reload-config=False)]
 # - make class work with context manager __enter__() __exit__()
 
@@ -27,36 +25,57 @@ class SSHCluster:
     def __init__(self, config_path: str) -> None:
         with open(config_path) as config_:
             cluster_config: dict[str, Any] = json.load(config_)
-        req_modules: list[str] = cluster_config["required_modules"]
-        w_space_path: str = cluster_config["worker_space_path"]
-        rw_pypath: str = cluster_config["remote_workers_python_path"]
-        s_config: dict[str, Any] = cluster_config["scheduler"]
-        w_config: dict[str, Any] = cluster_config["workers"]
-        self.__scp_modules(w_config, req_modules, rw_pypath).result()
-        scheduler_ = self.__init_scheduler(s_config)
-        r_workers = self.__init_remote_workers(w_config)
-        self.__cluster: SpecCluster = SpecCluster(workers=r_workers, scheduler=scheduler_)
-        scheduler_address = self.__cluster.scheduler_address
+
+        self.__req_modules: list[str] = cluster_config["required_modules"]
+        self.__w_space_path: str = cluster_config["worker_space_path"]
+        self.__rw_pypath: str = cluster_config["remote_workers_python_path"]
+        self.__scheduler: dict[str, Any] = cluster_config["scheduler"]
+        self.__workers: dict[str, Any] = cluster_config["workers"]
+        self.__remote_hosts = [(host, config["user"]) for host, config in self.__workers.items() if host != "localhost"]
         self.__local_workers: Optional[Popen] = None  # us to hold subprocess of local workers
-        if "localhost" in w_config.keys():
-            self.__init_local_workers(w_config["localhost"], req_modules, w_space_path, scheduler_address)
+
+        self.__scp_modules().result()  # copy required modules to remote workers
+        scheduler = self.__init_scheduler()
+        r_workers = self.__init_remote_workers()
+        self.__cluster: SpecCluster = SpecCluster(workers=r_workers, scheduler=scheduler)
+        self.__scheduler_address = self.__cluster.scheduler_address
+
+        if "localhost" in self.__workers.keys():
+            self.__init_local_workers()
 
         self.__client: Client = Client(self.__cluster)
 
-    @staticmethod
-    def __init_scheduler(s_config: dict[str, Any]) -> dict[str, Any]:
+    @property
+    def client(self) -> Client:
+        return self.__client
+
+    def shutdown(self) -> None:
+        if self.__local_workers is not None:
+            self.__local_workers.kill()
+        # access to internal protected member, not the cleanest way.. but this is internal API anyway.
+        c: DaskClient = self.client.__dict__['_dsk_client']
+        c.shutdown()
+
+        @unsync
+        async def _():
+            for host, user in self.__remote_hosts:
+                async with connect(host=host, username=user) as conn:
+                    await conn.run('pkill -9 python && pkill -9 python3')
+
+        _().result()  # force kill python instances on remote nodes
+
+    def __init_scheduler(self) -> dict[str, Any]:
         return {
             "cls": Scheduler,
             "options": {
-                "address": s_config['hostname'],
+                "address": self.__scheduler['hostname'],
                 "connect_options": {},
                 "kwargs": {},  # scheduler options
-                "remote_python": s_config['python_path']
+                "remote_python": self.__scheduler['python_path']
             }
         }
 
-    @staticmethod
-    def __init_remote_workers(w_config: dict[str, Any]) -> dict[str, Any]:
+    def __init_remote_workers(self) -> dict[str, Any]:
         return {
             worker_: {
                 "cls": Worker,
@@ -70,34 +89,27 @@ class SSHCluster:
                     "worker_module": "distributed.cli.dask_worker",
                     "remote_python": config["python_path"]
                 }
-            } for worker_, config in w_config.items() if worker_ != "localhost"
+            } for worker_, config in self.__workers.items() if worker_ != "localhost"
         }
 
-    def __init_local_workers(self, worker: dict[str, Any], modules: list[str], w_s_pth: str, s_addrs: str) -> None:
-        py_path = f"{':'.join(modules)}:$PYTHONPATH" if len(modules) else "$PYTHONPATH"
-        worker_module = f"{worker['python_path']} -m distributed.cli.dask_worker {s_addrs}"
-        worker_opts = f"--name localhost --nthreads {worker['nthreads']} --nprocs {worker['nprocs']}"
-        worker_memory = f"--memory-limit {worker['mem_per_procs']}"
+    def __init_local_workers(self) -> None:
+        config = self.__workers['localhost']
+        py_path = f"{':'.join(self.__req_modules)}:$PYTHONPATH" if len(self.__req_modules) else "$PYTHONPATH"
+        worker_module = f"{config['python_path']} -m distributed.cli.dask_worker {self.__scheduler_address}"
+        worker_opts = f"--name localhost --nthreads {config['nthreads']} --nprocs {config['nprocs']}"
+        worker_memory = f"--memory-limit {config['mem_per_procs']}"
         lh_workers_cli = " ".join([worker_module, worker_opts, worker_memory])
-        env = {"PYTHONPATH": py_path}
-        self.__local_workers = Popen(lh_workers_cli, env=env, cwd=w_s_pth, shell=True, close_fds=True, stderr=DEVNULL)
+        kwargs = {
+            'env': {"PYTHONPATH": py_path},
+            'cwd': self.__w_space_path,
+            'shell': True,
+            'close_fds': True,
+            'stderr': DEVNULL
+        }
+        self.__local_workers = Popen(lh_workers_cli, **kwargs)
 
-    @staticmethod
     @unsync
-    async def __scp_modules(workers: dict[str, Any], req_modules: list[str], pypath: str) -> None:
-        remote_hosts = [(host, prop["user"]) for host, prop in workers.items() if host != "localhost"]
-        for host, user in remote_hosts:
-            for module in req_modules:
-                await scp(f'{module}/*', f'{host}:{pypath}', preserve=True, recurse=True, username=user)
-
-    @property
-    def client(self) -> Client:
-        return self.__client
-
-    # TODO: restart remote machines and wait before returning
-    def shutdown(self) -> None:
-        if self.__local_workers is not None:
-            self.__local_workers.kill()
-        # access to internal protected member, not the cleanest way.. but this is internal API anyway.
-        c: DaskClient = self.client.__dict__['_dsk_client']
-        c.shutdown()
+    async def __scp_modules(self) -> None:
+        for host, user in self.__remote_hosts:
+            for module in self.__req_modules:
+                await scp(f'{module}/*', f'{host}:{self.__rw_pypath}', preserve=True, recurse=True, username=user)
