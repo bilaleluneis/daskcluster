@@ -17,7 +17,6 @@ from configurable.client.ssh import Client
 # TODO:
 # - log when transfering files.
 # - add instance methods [start, shutdown , restart(reload-config=False)]
-# - make class work with context manager __enter__() __exit__()
 
 @final
 class SSHCluster:
@@ -34,7 +33,7 @@ class SSHCluster:
         self.__remote_hosts = [(host, config["user"]) for host, config in self.__workers.items() if host != "localhost"]
         self.__local_workers: Optional[Popen] = None  # us to hold subprocess of local workers
 
-        self.__scp_modules().result()  # copy required modules to remote workers
+        self.__scp_modules()  # copy required modules to remote workers
         scheduler = self.__init_scheduler()
         r_workers = self.__init_remote_workers()
         self.__cluster: SpecCluster = SpecCluster(workers=r_workers, scheduler=scheduler)
@@ -44,6 +43,12 @@ class SSHCluster:
             self.__init_local_workers()
 
         self.__client: Client = Client(self.__cluster)
+
+    def __enter__(self) -> Client:
+        return self.__client
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> Optional[bool]:
+        return self.shutdown()
 
     @property
     def client(self) -> Client:
@@ -108,8 +113,19 @@ class SSHCluster:
         }
         self.__local_workers = Popen(lh_workers_cli, **kwargs)
 
-    @unsync
-    async def __scp_modules(self) -> None:
-        for host, user in self.__remote_hosts:
-            for module in self.__req_modules:
-                await scp(f'{module}/*', f'{host}:{self.__rw_pypath}', preserve=True, recurse=True, username=user)
+    def __scp_modules(self) -> None:
+        if not len(self.__req_modules):
+            return
+
+        @unsync
+        async def _():
+            for host, user in self.__remote_hosts:
+                for module in self.__req_modules:
+                    kwargs = {
+                        'preserve': True,
+                        'recurse': True,
+                        'username': user
+                    }
+                    await scp(f'{module}/*', f'{host}:{self.__rw_pypath}', **kwargs)
+
+        _().result()
