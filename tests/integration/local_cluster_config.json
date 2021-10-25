@@ -8,7 +8,9 @@
     "required_modules: projects that are not part of PYTHONPATH that your project require",
     "worker_space_path: location to create create dask-work-space folder",
     "scheduler->python_path: the python instace to use which should have DASK package installed on",
-    "workers: workers with num of processors, threads and ram memory per worker"
+    "workers: workers with num of processors, threads and ram memory per worker",
+    "Cluster Monitor:",
+    "http://localhost:8787/"
   ],
 
   "required_modules": [],
