@@ -1,0 +1,36 @@
+{
+  "COMMENT": [
+    "setup CLUSTER on LOCAL machine only, doesnt require any remote NODES",
+    "the ability to ssh to current account without password is required",
+    "to enable ssh, on Mac -> system prefrences -> file sharing -> allow remote login -> add current user",
+    "you might need to restart the IDE or Shell for this to take effect.",
+    "CONFIGS:",
+    "required_modules: projects that are not part of PYTHONPATH that your project require",
+    "worker_space_path: location to create create dask-work-space folder",
+    "scheduler->python_path: the python instace to use which should have DASK package installed on",
+    "workers: workers with num of processors, threads and ram memory per worker"
+  ],
+
+  "required_modules": [],
+
+  "worker_space_path": "/Users/dask",
+
+  "remote_workers_python_path": "",
+
+  "scheduler": {
+    "hostname": "localhost",
+    "python_path": "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3"
+  },
+
+  "workers": {
+
+    "localhost": {
+      "python_path": "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3",
+      "nprocs": 4,
+      "nthreads": 4,
+      "mem_per_procs": "2000MB"
+    }
+
+  }
+
+}

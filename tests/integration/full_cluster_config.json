@@ -1,0 +1,62 @@
+{
+  "COMMENT": [
+    "TODO:"
+  ],
+
+  "required_modules": [
+    "/Users/bilaleluneis/Developer/aipatentops"
+  ],
+
+  "worker_space_path": "/Users/dask",
+
+  "remote_workers_python_path": "/tmp",
+
+  "scheduler": {
+    "hostname": "localhost",
+    "python_path": "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3"
+  },
+
+  "workers": {
+
+    "localhost": {
+      "python_path": "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3",
+      "nprocs": 4,
+      "nthreads": 4,
+      "mem_per_procs": "2000MB"
+    },
+
+    "rpi4.local": {
+      "python_path": "/opt/Python3.9venv/bin/python",
+      "user": "root",
+      "nprocs": 4,
+      "nthreads": 4,
+      "mem_per_procs": "1500MB"
+    },
+
+    "rpi4n0.local": {
+      "python_path": "/opt/Python3.9venv/bin/python",
+      "user": "root",
+      "nprocs": 4,
+      "nthreads": 4,
+      "mem_per_procs": "2GB"
+    },
+
+    "rpi4n1.local": {
+      "python_path": "/opt/Python3.9venv/bin/python",
+      "user": "root",
+      "nprocs": 4,
+      "nthreads": 4,
+      "mem_per_procs": "2GB"
+    },
+
+    "rpi4n2.local": {
+      "python_path": "/opt/Python3.9venv/bin/python",
+      "user": "root",
+      "nprocs": 4,
+      "nthreads": 4,
+      "mem_per_procs": "2GB"
+    }
+
+  }
+
+}

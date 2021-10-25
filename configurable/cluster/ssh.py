@@ -11,12 +11,13 @@ from distributed import Client as DaskClient
 from distributed.deploy.ssh import Scheduler, Worker, SpecCluster
 from unsync import unsync
 
-from configurable.client.ssh import Client
+from configurable.cluster.client import Client
 
 
 # TODO:
 # - log when transfering files.
 # - add instance methods [start, shutdown , restart(reload-config=False)]
+
 
 @final
 class SSHCluster:
