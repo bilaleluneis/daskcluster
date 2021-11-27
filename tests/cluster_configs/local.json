@@ -8,8 +8,7 @@
     "required_modules: projects that are not part of PYTHONPATH that your project require",
     "worker_space_path: location to create create dask-work-space folder",
     "workers: workers with num of processors, threads and ram memory per worker",
-    "Cluster Monitor:",
-    "http://localhost:8787/"
+    "Cluster Monitor: http://localhost:8787/"
   ],
   "required_modules": [],
   "worker_space_path": "/Users/dask",

@@ -14,10 +14,6 @@ from unsync import unsync
 from configurable.cluster.client import Client
 
 
-# TODO:
-# use work_space_path in remote workers
-
-
 @final
 class SSHCluster:
 
@@ -81,6 +77,7 @@ class SSHCluster:
 
         self.__internal_dask_client.restart()
 
+    # TODO: make use of __w_space_path/worker_space_path from json config file
     def __init_remote_workers(self) -> dict[str, dict]:
         workers: dict[str, dict] = {}
         for worker_, config in self.__workers.items():

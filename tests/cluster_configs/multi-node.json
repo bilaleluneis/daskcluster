@@ -1,8 +1,16 @@
 {
   "COMMENT": [
-    "TODO:"
+    "ability to ssh without password to remote nodes is required",
+    "on Client machine execute ssh-keygen on terminal and accept all defaults",
+    "copy the key to all nodes by executing ssh-copy-id root@rpi4n0.local",
+    "make sure you can now ssh root@rpi4n0.local without needing to enter password",
+    "create tmp.pth file under site-packages forlder under /opt/Python3.9venv/",
+    "open file, type and save /tmp into it, make sure that folder exists"
   ],
-  "required_modules": [],
+  "required_modules": [
+    "/Users/bilaleluneis/Developer/daskcluster",
+    "/Users/bilaleluneis/Developer/daskcluster/tests"
+  ],
   "worker_space_path": "/Users/dask",
   "remote_workers_python_path": "/tmp",
   "workers": {
@@ -11,13 +19,6 @@
       "nprocs": 4,
       "nthreads": 4,
       "mem_per_procs": "2000MB"
-    },
-    "rpi4.local": {
-      "python_path": "/opt/Python3.9venv/bin/python",
-      "user": "root",
-      "nprocs": 4,
-      "nthreads": 4,
-      "mem_per_procs": "1500MB"
     },
     "rpi4n0.local": {
       "python_path": "/opt/Python3.9venv/bin/python",
